@@ -644,8 +644,8 @@ class FileMimeTypes:
 
     def __init__(self) -> None:
         self.mime_db = [
-            "Image",
-            "Videos"
+            "image",
+            "videos"
         ]
 
 
