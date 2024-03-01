@@ -88,7 +88,7 @@ class MetaData:
     def get_meta_data(self, key):
         """Retrieve a metadata entry."""
         if key is not None:
-            if key in self.__meta_data:
+            if key in self.__meta_data.keys():
                 return self.__meta_data[key]
             else:
                 raise NotFoundException(f"Metadata with key '{key}' not found")
@@ -105,7 +105,7 @@ class MetaData:
         :raise  NotFoundException and NullKeyValueException:
         """
         if key is not None:
-            if key in self.__meta_data:
+            if key in self.__meta_data.keys():
                 self.__meta_data[key] = value
             else:
                 raise NotFoundException(f"Metadata with key '{key}' not found")
@@ -120,7 +120,7 @@ class MetaData:
         :raise  NotFoundException and NullKeyValueException:
         """
         if key is not None:
-            if key in self.__meta_data:
+            if key in self.__meta_data.keys():
                 del self.__meta_data[key]
             else:
                 raise NotFoundException(f"Metadata with key '{key}' not found")
@@ -475,7 +475,7 @@ class LruCache:
     def add_val(self, key, value):
         if key is None or value is None:
             raise NullKeyValueException()
-        if self.__cache_map[key] is not value:
+        if self.__cache_map.get(key) is not value:
             if len(self.__cache_map) == self.__max_size:
                 self.trim_to_size()
             self.__cache_map[key] = value
@@ -488,7 +488,7 @@ class LruCache:
     def update_value(self, key, value):
         if key is None or value is None:
             raise NullKeyValueException()
-        if self.__cache_map[key] is None:
+        if self.__cache_map.get(key) is None:
             self.add_val(key, value)
         else:
             self.__logger.log(f"The key's {key} value {self.__cache_map[key]} is updated with {value}")
@@ -497,7 +497,7 @@ class LruCache:
     def get_value(self, key):
         if key is None:
             raise NullKeyValueException()
-        if self.__cache_map[key] is None:
+        if self.__cache_map.get(key) is None:
             self.__logger.log(f"Read the key {key} successfully")
             self.__miss_count += 1
             return None
