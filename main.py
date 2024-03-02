@@ -35,6 +35,10 @@ class ObjectAlreadyExistsException(Exception):
     """Exception raised when an item is not found."""
 
 
+class NullFileException(Exception):
+    """Exception thrown when null files are passed"""
+
+
 # class ReedSolomonEncoder:
 #     def __init__(self, data_shards, parity_shards):
 #         """
@@ -269,6 +273,9 @@ class ConsistentHashing:
             :param _node:
             :return None:
             """
+            if self.should_expand():
+                self.expand_ring()
+
             if _node is not None:
                 c_index = ConsistentHashing.Hash.find_index(_node, len(self.__ring))
                 if self.__ring[c_index] is None:
@@ -278,15 +285,13 @@ class ConsistentHashing:
                     for i in range(c_index, len(self.__ring)):
                         if self.__ring[i] is None:
                             self.__ring[i] = _node
-                            # c_idx += 1
                             break
                         c_idx += 1
 
                     if c_idx == len(self.__ring):
                         for i in range(0, c_index):
-                            if c_index == i + 1 and self.__ring[i] is not None:
-                                self.__ring.append(_node)
-                                self.expand_ring()
+                            if self.__ring[i] is None:
+                                self.__ring[i] = _node
 
         def should_expand(self):
             """
@@ -314,17 +319,20 @@ class ConsistentHashing:
                     idx = ConsistentHashing.Hash.find_index(val, n_capacity)
                     if n_ring[idx] is None:
                         n_ring[idx] = val
+
                     else:
-                        v = 0
-                        for i in range(idx, n_capacity):
+                        c_id = idx
+                        for i in range(idx + 1, len(n_ring)):
                             if n_ring[i] is None:
                                 n_ring[i] = val
-                                v += 1
+                                break
+                            c_id += 1
 
-                        if v is n_capacity - 1 and n_ring[v] is not val:
+                        if c_id == len(n_ring):
                             for i in range(0, idx):
-                                if n_ring[idx] is None:
-                                    n_ring[idx] = val
+                                if n_ring[i] is None:
+                                    n_ring[i] = val
+                                    break
 
                 self.__ring = n_ring
                 self.capacity = n_capacity
@@ -341,15 +349,15 @@ class ConsistentHashing:
             if self.__ring[idx] is not None:
                 return self.__ring[idx]
             else:
-                for i in range(idx, self.capacity):
-                    if self.__ring[idx] is not None:
-                        return self.__ring[idx]
+                for i in range(idx, len(self.__ring)):
+                    if self.__ring[i]:
+                        return self.__ring[i]
 
                 for i in range(0, idx):
-                    if self.__ring[idx] is not None:
-                        return self.__ring[idx]
+                    if self.__ring[i]:
+                        return self.__ring[i]
 
-                return None
+                raise NotFoundException()
 
         def update(self, _node, n_node):
             """
@@ -366,7 +374,7 @@ class ConsistentHashing:
                     self.__ring[expected_idx] is not _node
                     or n_node is not None):
 
-                for i in range(expected_idx, self.capacity):
+                for i in range(expected_idx, len(self.__ring)):
                     if self.__ring[i] is _node:
                         self.__ring[i] = n_node
                         return True
@@ -375,6 +383,10 @@ class ConsistentHashing:
                     if self.__ring[i] is _node:
                         self.__ring[i] = n_node
                         return True
+
+            elif self.__ring[expected_idx] == _node:
+                self.__ring[expected_idx] = n_node
+                return True
 
             return False
 
@@ -799,6 +811,41 @@ def download_object(object_t, object_name, object_type):
         return response
     except NotFoundException as e:
         return jsonify({"error": str(e)}), 404
+
+
+class Configuration:
+    def __init__(self, config_file) -> None:
+        if config_file is None:
+            raise NullFileException()
+        if not os.path.exists(os.path.join(os.getcwd(), config_file)):
+            raise NotFoundException()
+        self.__config_file = config_file
+        self.__consistent_hashing = ConsistentHashing(self.get_config_capacity())
+        self.add_hosts_to_ring()
+        
+    def read_config(self) -> dict:
+        with open(self.__config_file, 'r') as f:
+            return json.load(f)
+
+    def get_config_host(self):
+        data = self.read_config()
+        if data.get("hosts"):
+            return data.get("hosts")
+        else:
+            raise NotFoundException()
+
+    def get_config_capacity(self):
+        data = self.read_config()
+        if data.get("capacity"):
+            return int(data.get("capacity"))
+        else:
+            raise NotFoundException()
+
+    def add_hosts_to_ring(self):
+        hosts = self.get_config_host()
+        for host in hosts:
+            print(host)
+            self.__consistent_hashing.put(host)
 
 
 if __name__ == '__main__':
